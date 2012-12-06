@@ -217,10 +217,10 @@ sub main {
         return $command_map{$command}->();
     }
     else {
-        if ($command eq 'show') {
             collect_data();
-        }
+
         for my $graph (sort keys %graphs) {
+           next if $graph =~ /innodb_/ && $data->{_innodb_disabled};
             print "multigraph $graph$instance\n";
             $command_map{$command}->($graph);
         }
@@ -292,8 +292,7 @@ sub show {
 
     my $graph = $graphs{$graph_name};
     
-    die "Can't show data for '$graph_name' because InnoDB is disabled."
-        if $graph_name =~ /innodb_/ && $data->{_innodb_disabled};
+    return if $graph_name =~ /innodb_/ && $data->{_innodb_disabled};
 
     for my $ds (@{$graph->{data_sources}}) {
         my $value = exists $ds->{value} 
@@ -396,6 +395,11 @@ sub update_innodb {
             $data->{_innodb_disabled} = 1;
             return;
         }
+        if ($@ =~ /Unknown table engine 'INNODB'/) {
+            $data->{_innodb_disabled} = 1;
+            return;
+        }
+
         die $@;
     }
     my $row = $sth->fetchrow_hashref();
